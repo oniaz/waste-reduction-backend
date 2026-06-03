@@ -10,16 +10,27 @@ const productSchema = new mongoose.Schema({
     },
     productName: { 
         type: String,
-        required: true
+        required: true,
+        trim: true,
+        minlength: 3,
+        maxlength: 50
     },
     priceWithCommission: { 
         type: Number,
-        required: true
+        required: true,
+        min: 0
     },
     discount: { 
         type: Number,
         required: true,
-        default: 0
+        default: 0,
+        min: 0,
+        validate: {
+            validator: function(value) {
+                return value <= this.priceWithCommission; //false if discount is greater than price with commission, which is invalid
+            },
+            message: "Discount cannot be greater than the price with commission."
+        }
     },
     expiryDate: { 
         type: Date,
@@ -35,7 +46,8 @@ const productSchema = new mongoose.Schema({
     },
     quantity: { 
         type: Number,
-        required: true
+        required: true,
+        min: 0
     },
     isDeliverable: {
         type: Boolean,
@@ -47,6 +59,8 @@ const productSchema = new mongoose.Schema({
     },
     description: { 
         type: String,
+        trim: true,
+        maxlength: 200
     },
     tags: { 
         type: [String], 
@@ -76,5 +90,5 @@ productSchema.pre("save", async function() {
     this.validDate = calculatedDate;   // Update the field natively
 });
 
-const Products = mongoose.model('Product', productSchema);
+const Products = mongoose.model('Products', productSchema);
 export default Products;
