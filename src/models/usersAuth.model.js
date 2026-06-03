@@ -5,10 +5,14 @@ const usersAuthSchema = new mongoose.Schema({
       type: String,
       required: true,
         unique: true,
+        minlength: 5,
+        maxlength: 30,
+        trim: true
     },
     password: {
         type: String,
         required: true,
+        minlength: 6 //no max length for password, since it will be hashed and the hash can be long
     },
     role: {
         type: String,
