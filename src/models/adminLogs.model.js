@@ -18,6 +18,8 @@ const adminLogsSchema = new mongoose.Schema({
     },
     description: {
         type: String,
+        trim: true,
+        maxlength: 200
     }
 }, { timestamps: true });
 
