@@ -67,14 +67,21 @@ const productSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Modern asynchronous pre-save hook (no 'next' parameter = no hanging bugs)
+
 productSchema.pre("save", async function() {
 
-    if (!this.isModified("category") && !this.isModified("expiryDate")) return; // Only recalculate if category or expiryDate has changed
+    // Recalculate if either field is modified, or if validDate doesn't exist yet
+    const isCategoryChanged = this.isModified("category");
+    const isExpiryChanged = this.isModified("expiryDate");
+    const isValidDateMissing = !this.validDate;
+
+    if (!isCategoryChanged && !isExpiryChanged && !isValidDateMissing) {
+        return; // Safe to skip only if nothing relevant changed and validDate already exists
+    }
 
     if (!this.expiryDate) return; // If expiryDate is not set, we can't calculate validDate, so we skip the calculation
 
-    // 3. Define subtraction rules per category
+    //Define subtraction rules per category
     const daysToSubtractBeforeExpiry = {
         bakery: 7,  
         dairy: 10,   
