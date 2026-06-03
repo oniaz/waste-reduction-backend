@@ -1,51 +1,74 @@
 import mongoose from "mongoose";
+
 const vendorsSchema = new mongoose.Schema({
-   email: {
-      type: String,
-      required: true,
-        unique: true, //on the level of vendors, email should be unique
-   },
+    email: {
+        type: String,
+        required: true,
+        unique: true, // Unique per vendor profile
+        minlength: 5,
+        maxlength: 50,
+        trim: true,
+        lowercase: true
+    },
     shopName: {
-       type: String,
-       required: true,
+        type: String,
+        required: true,
+        trim: true,
+        minlength: 3,
+        maxlength: 50
     },
     address: {
         governorate: {
             type: String,
             required: true,
+            trim: true,
+            lowercase: true
         },
         city: {
             type: String,
             required: true,
+            trim: true,
+            lowercase: true
         },
         neighborhood: {
             type: String,
             required: true,
+            trim: true,
+            lowercase: true
         },
         detailedAddress: {
             type: String,
             required: true,
+            trim: true,
+            maxlength: 200
         }
     },
     phoneNumber: {
         type: String,
         required: true,
+        trim: true // Cleans up accidental leading/trailing spaces from user input
     },
     taxNumber: {
         type: String,
         required: true,
+        unique: true,
+        trim: true // Cleans up pasted registration spacing
     },
     moneyOwed: {
         type: Number,
         default: 0,
+        min: 0 // Protects ledger from negative balances
     },
     rating: {
         score: {
             type: Number,
-            default: 0},
-        totalRatingsNumber: { //to calculate the average rating
+            default: 0,
+            min: 0
+        },
+        totalRatingsNumber: { 
             type: Number,
-            default: 0
+            default: 0,
+            min: 0
         }
     },
     authId: {
@@ -53,6 +76,7 @@ const vendorsSchema = new mongoose.Schema({
         ref: "UsersAuth",
         required: true
     }
-}   , { timestamps: true });
+}, { timestamps: true });
+
 const Vendors = mongoose.model("Vendors", vendorsSchema);
 export default Vendors;
