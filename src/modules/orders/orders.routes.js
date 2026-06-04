@@ -1,5 +1,5 @@
 import express from "express";
-
+import { createOrder } from "./orders.controller.js";
 const router = express.Router();
 
 // POST /orders | Auth required (customer) | create order from cart items
@@ -10,9 +10,7 @@ const router = express.Router();
 // PATCH /orders/:id/status | Auth required (seller owner, admin) | update order status lifecycle
 // POST /orders/:id/rate | Auth required (customer owner) | rate completed order and update seller rating
 
-router.post("/", (req, res) => {
-    res.json({message: "Create order endpoint"});
-});
+router.post("/", createOrder);
 
 router.get("/my-orders", (req, res) => {
     res.json({message: "Get customer orders endpoint"});
