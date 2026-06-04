@@ -182,3 +182,50 @@ export const getSellerOrders = async (req, res, next) => {
         next(error);
     }
 };
+
+// PATCH /orders/:id/cancel | Auth required (customer owner) | cancel pending order
+export const cancelOrder = async (req, res, next) => {
+    try {
+        const orderId = req.params.id;
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: "Invalid order ID" });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+
+        if (currentUserRole !== 'customer' || order.customerId?.toString() !== currentUserId) {
+            return res.status(403).json({ message: "Forbidden: You do not have permission to cancel this order" });
+        }
+
+        
+        if (order.status !== 'pending' && order.status !== 'ready') {
+            return res.status(400).json({ 
+                message: `Cannot cancel order. Order is currently '${order.status}' and cannot be altered.` 
+            });
+        }
+
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            { $set: { status: 'cancelled' } },
+            { new: true, runValidators: true } // runValidators ensures that any schema validations are re-applied during update, and new: true returns the updated document in the response
+        );
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Order cancelled successfully", 
+            order: updatedOrder 
+        });
+
+    } catch (error) {
+        next(error);
+    } 
+};
+
+ 
