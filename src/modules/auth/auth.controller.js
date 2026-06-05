@@ -1,6 +1,12 @@
 import UsersAuth from "../../models/usersAuth.model.js";
-import { validateUsername, validateEmail, validatePassword, validateRole } from "../../utils/authValidators.js";
+import {
+    validateUsername, validateEmail, validatePassword, validateRole,
+    validatePhoneNumber, validateAddress, validateShopName, validateTaxNumber, validateName
+
+} from "../../utils/authValidators.js";
 import { sendPasswordResetEmail } from "../auth/auth.services.js";
+import { registerUser } from "./auth.services.js";
+import Vendors from "../../models/vendors.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from 'bcrypt';
 
@@ -29,7 +35,7 @@ import bcrypt from 'bcrypt';
  */
 export const register = async (req, res) => {
     try {
-        let { username, password, role, email } = req.body;
+        let { username, password, role, email, ...profileData } = req.body;
 
         if (!username || !password || !role || !email) {
             return res.status(400).json({
@@ -42,51 +48,43 @@ export const register = async (req, res) => {
         role = role?.trim().toLowerCase();
 
         const roleError = validateRole(role);
-        if (roleError) return res.status(400).json({ message: roleError });
-
         const usernameError = validateUsername(username);
-        if (usernameError) return res.status(400).json({ message: usernameError });
-
         const emailError = validateEmail(email);
-        if (emailError) return res.status(400).json({ message: emailError });
-
         const passwordError = validatePassword(password);
-        if (passwordError) return res.status(400).json({ message: passwordError });
+
+        const validationError = roleError || usernameError || emailError || passwordError;
+        if (validationError) return res.status(400).json({ message: validationError });
+
 
         const existingUser = await UsersAuth.findOne({ username });
         if (existingUser) {
             return res.status(400).json({ message: "Username already exists." });
         }
 
-        if (role === "customer") {
-            const existingCustomer = await UsersAuth.findOne({
-                email,
-                role: "customer"
-            });
-
-            if (existingCustomer) {
-                return res.status(400).json({
-                    message: "Customer already exists with this email."
-                });
-            }
+        if (role === "vendor") {
+            const { shopName, phoneNumber, taxNumber, address } = profileData;
+            const err =
+                validateShopName(shopName) ||
+                validatePhoneNumber(phoneNumber) ||
+                validateTaxNumber(taxNumber) ||
+                validateAddress(address);
+            if (err) return res.status(400).json({ message: err });
+            if (await Vendors.findOne({ taxNumber: taxNumber.trim() }))
+                return res.status(400).json({ message: "Tax number already in use." });
         }
 
-        // commented out until admin approval flow is implemented
-        // const accountStatus = role === "vendor" ? "pending" : "active";
+        if (role === "customer") {
+            const { name, phoneNumber, address } = profileData;
+            const err =
+                validateName(name) ||
+                validatePhoneNumber(phoneNumber) ||
+                validateAddress(address);
+            if (err) return res.status(400).json({ message: err });
+        }
 
-        const newUser = new UsersAuth({
-            username,
-            password,
-            role,
-            email,
-            // accountStatus
-        });
+        await registerUser({ username, password, role, email, profileData });
 
-        await newUser.save();
-
-        return res.status(201).json({
-            message: "User registered successfully."
-        });
+        return res.status(201).json({ message: "User registered successfully." });
 
     } catch (error) {
         // replace later with error middleware

@@ -1,5 +1,47 @@
 import nodemailer from 'nodemailer';
 
+
+import mongoose from "mongoose";
+import UsersAuth from "../../models/usersAuth.model.js";
+import Vendors from "../../models/vendors.model.js";
+import Customers from "../../models/customers.model.js";
+
+export async function registerUser({ username, password, role, email, profileData }) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        if (role === "customer") {
+            const existingCustomer = await UsersAuth.findOne({ email, role: "customer" }).session(session);
+            if (existingCustomer) throw { status: 400, message: "Customer already exists with this email." };
+        }
+
+        // commented out until admin approval flow is implemented
+        // const accountStatus = role === "vendor" ? "pending" : "active";
+        const [newAuth] = await UsersAuth.create(
+            [{ username, password, role, email,
+                //  accountStatus
+                 }],
+            { session }
+        );
+
+        if (role === "vendor") {
+            await Vendors.create([{ ...profileData, authId: newAuth._id }], { session });
+        } else if (role === "customer") {
+            await Customers.create([{ ...profileData, authId: newAuth._id }], { session });
+        }
+        await session.commitTransaction();
+        return newAuth;
+
+    } catch (err) {
+        await session.abortTransaction();
+        throw err;
+    } finally {
+        session.endSession();
+    }
+}
+
+
 const transporter = nodemailer.createTransport({
     service: process.env.NODEMAILER_EMAIL_SERVICE,
     auth: {
