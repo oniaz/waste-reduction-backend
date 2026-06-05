@@ -166,3 +166,36 @@ export const login = async (req, res) => {
         return res.status(500).json({ message: error.message });
     }
 };
+
+/**
+ * Logout user by clearing authentication cookie.
+ *
+ * @route POST /auth/logout
+ *
+ * Auth Flow:
+ * - Clears JWT cookie from client browser
+ * - Invalidates session on frontend (stateless backend)
+ *
+ * Cookie:
+ * - httpOnly: true (secure cookie removal)
+ * - secure: true in production only
+ * - sameSite: none (matches login configuration)
+ *
+ * @returns {Object} 200 - Logout successful
+ * @returns {Object} 500 - Server error
+ */
+export const logout = async (req, res) => {
+    try {
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "none"
+        });
+
+        return res.status(200).json({
+            message: "Logged out successfully."
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
