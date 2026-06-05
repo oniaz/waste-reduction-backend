@@ -6,6 +6,28 @@ import express from "express";
 import mongoose from "mongoose";
 
 // POST /orders | Auth required (customer) | create order from cart items
+/**
+ * @api {post} /api/orders Create Order
+ * @apiName CreateOrder
+ * @apiGroup Orders
+ * @apiPermission customer
+ * * @description Validates cart items, verifies product pricing, creates a new pending order 
+ * document, and sequentially decrements the product inventory stock counts.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the customer.
+ * @param {Object} req.body - The request body payload.
+ * @param {Array<Object>} req.body.products - List of items being checked out.
+ * @param {string} req.body.products[].productId - The MongoDB ObjectId of the target product.
+ * @param {number} req.body.products[].quantity - The amount of units requested by the user.
+ * @param {string} req.body.shippingAddress - Delivery destination details.
+ * @param {string} req.body.paymentMethod - Choice of payment method (e.g., 'Cash on Delivery').
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 201 on success, or passes errors to next().
+ * * @throws {400} If missing required body keys, if the payload formatting is invalid, or if product quantities exceed active stock capacity.
+ * @throws {404} If a specific product ID specified within the payload does not exist in the database.
+ */
 export const createOrder = async (req, res, next) => {
     try {
         // Implementation logic to create an order from cart items
@@ -59,6 +81,23 @@ export const createOrder = async (req, res, next) => {
 };
 
 // GET /orders/my-orders | Auth required (customer) | get logged-in customer orders
+/**
+ * @api {get} /api/orders/my-orders Get My Orders
+ * @apiName GetMyOrders
+ * @apiGroup Orders
+ * @apiPermission customer
+ * * @description Retrieves a chronological list of historical orders placed by the currently authenticated customer.
+ * Supports optional pagination limits via query parameters and sorts records from newest to oldest.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the customer.
+ * @param {Object} req.query - URL query parameters.
+ * @param {string} [req.query.limit=10] - Optional numeric string to cap the total number of orders returned.
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 containing the filtered orders array, or passes errors to next().
+ * * @throws {401} If the request context is missing user verification data or the customer identity cannot be established.
+ */
 export const getMyOrders = async (req, res, next) => {  //mock auth was used for testing
     try {
         // Implementation logic to get orders for the logged-in customer
@@ -84,6 +123,30 @@ export const getMyOrders = async (req, res, next) => {  //mock auth was used for
 
 // GET /orders/:id | Auth required (customer owner, seller involved, admin) | get order details 
 //one end point used for all three roles with guardrails in controller
+/**
+ * @api {get} /api/orders/:id Get Order Details
+ * @apiName GetOrderDetails
+ * @apiGroup Orders
+ * @apiPermission admin | customer | vendor
+ * * @description Retrieves full invoice and tracking details for a specific order by its unique ID.
+ * This endpoint implements a multi-role security guardrail allowing visibility only if the 
+ * authenticated requester satisfies at least one of these conditions:
+ * 1. The user is an Admin.
+ * 2. The user is the Customer who originally placed the order.
+ * 3. The user is a Vendor who owns at least one product within the requested order.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.params - URL route parameters.
+ * @param {string} req.params.id - The unique MongoDB ObjectId of the target order.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the active requester.
+ * @param {string} req.user.role - The authorization system role of the user ('admin', 'customer', or 'vendor').
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 containing the populated order document, or passes errors to next().
+ * * @throws {400} If the provided order ID missing or fails basic MongoDB ObjectId structural validation formatting.
+ * @throws {403} If the authenticated user is neither the buying customer, an involved vendor, nor a system administrator.
+ * @throws {404} If no order document corresponds to the valid database ObjectId parameter.
+ */
 export const getOrderDetails = async (req, res, next) => {
     try {
         // Implementation logic to get order details by ID 
@@ -134,6 +197,26 @@ export const getOrderDetails = async (req, res, next) => {
     }
 };
 // GET /orders/seller | Auth required (seller) | get all orders containing seller products
+/**
+ * @api {get} /api/orders/seller Get Seller Orders
+ * @apiName GetSellerOrders
+ * @apiGroup Orders
+ * @apiPermission vendor
+ * * @description Retrieves a chronological list of customer orders containing products owned by the
+ * currently authenticated vendor. It uses a high-performance distinct ID extraction query to find matches, 
+ * and automatically restricts schema visibility to minimize data exposure.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the vendor/seller.
+ * @param {string} req.user.role - The authorization system role of the user (must be 'vendor').
+ * @param {Object} req.query - URL query parameters.
+ * @param {string} [req.query.limit=10] - Optional numeric string to cap the total number of orders returned.
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 containing the matching orders array, or passes errors to next().
+ * * @throws {401} If the request context is missing authentication identifiers.
+ * @throws {403} If the requester's system role is not explicitly verified as a 'vendor'.
+ */
 export const getSellerOrders = async (req, res, next) => {
     try {
         const sellerId = req.user?.id;
@@ -185,6 +268,27 @@ export const getSellerOrders = async (req, res, next) => {
 };
 
 // PATCH /orders/:id/cancel | Auth required (customer owner) | cancel pending order
+/**
+ * @api {patch} /api/orders/:id/cancel Cancel Order
+ * @apiName CancelOrder
+ * @apiGroup Orders
+ * @apiPermission customer
+ * * @description Cancels an active order if it is in an alterable state ('pending' or 'ready'). 
+ * Upon validation, it transitions the order status to 'cancelled' and builds an array of write operations
+ * to efficiently restock the product items back into the database via a native batch update.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.params - URL route parameters.
+ * @param {string} req.params.id - The unique MongoDB ObjectId of the target order to cancel.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the active customer.
+ * @param {string} req.user.role - The authorization system role of the user (must be 'customer').
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 on successful cancellation, or passes errors to next().
+ * * @throws {400} If the order status is already finalized ('completed' or 'cancelled'), rendering it immutable.
+ * @throws {403} If the customer attempting cancellation is not the original owner who placed the order.
+ * @throws {404} If no order record corresponds to the provided database ObjectId parameter.
+ */
 export const cancelOrder = async (req, res, next) => {
     try {
         const orderId = req.params.id;
@@ -242,6 +346,31 @@ export const cancelOrder = async (req, res, next) => {
 };
 
  // PATCH /orders/:id/status | Auth required (seller owner, admin) | update order status lifecycle
+ /**
+ * @api {patch} /api/orders/:id/status Update Order Status
+ * @apiName UpdateOrderStatus
+ * @apiGroup Orders
+ * @apiPermission admin | vendor
+ * * @description Updates the tracking status lifecycle state of a specific order. 
+ * This endpoint enforces strict multi-role permission loops and operational validation rules:
+ * 1. Restricts caller scope to 'admin' or an involved 'vendor' who owns a product inside the order.
+ * 2. Explicitly rejects incoming requests setting status to 'cancelled' (directing clients to use the explicit cancellation route).
+ * 3. Enforces an immutability state-lock preventing any status updates if the order is already 'completed' or 'cancelled'.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.params - URL route parameters.
+ * @param {string} req.params.id - The unique MongoDB ObjectId of the target order.
+ * @param {Object} req.body - The request body payload.
+ * @param {string} req.body.status - The target tracking status string to apply ('pending', 'ready', 'completed').
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the active actor.
+ * @param {string} req.user.role - The authorization system role of the user ('admin' or 'vendor').
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 on successful state change, or passes errors to next().
+ * * @throws {400} If parameters fail structural ID validation, the target status is missing/invalid, a client passes 'cancelled', or the order state is immutable.
+ * @throws {403} If the actor is neither an administrator nor a vendor associated with items inside the target order.
+ * @throws {404} If no order corresponds to the provided database ObjectId parameter.
+ */
 export const updateOrderStatus = async (req, res, next) => {
     try {
         const orderId = req.params.id;
@@ -308,6 +437,33 @@ export const updateOrderStatus = async (req, res, next) => {
     }
 };
 // POST /orders/:id/rate | Auth required (customer owner) | rate completed order and update seller rating
+/**
+ * @api {post} /api/orders/:id/rate Rate Order
+ * @apiName RateOrder
+ * @apiGroup Orders
+ * @apiPermission customer
+ * * @description Submits a 1-5 star rating for a finalized order. This endpoint protects
+ * business and data logic through several integrated validation steps:
+ * 1. Checks that the active requester is the explicitly authorized customer owner of the order.
+ * 2. Enforces a strict state-lock ensuring only orders with a status of 'completed' can be rated.
+ * 3. Integrates a duplicate prevention guardrail checking the 'isRated' status flag.
+ * 4. Extracts and deduplicates unique Vendor IDs from the purchased products array using a JavaScript Set.
+ * 5. Uses a highly optimized MongoDB '.bulkWrite()' matrix to update scores and transaction totals across all involved vendors in a single query packet.
+ * * @param {import('express').Request} req - Express request object.
+ * @param {Object} req.params - URL route parameters.
+ * @param {string} req.params.id - The unique MongoDB ObjectId of the target order.
+ * @param {Object} req.body - The request body payload.
+ * @param {number} req.body.rating - An integer rating score ranging strictly between 1 and 5.
+ * @param {Object} req.user - Authenticated user payload injected by auth middleware.
+ * @param {string} req.user.id - The unique MongoDB ObjectId of the active customer.
+ * @param {string} req.user.role - The authorization system role of the user (must be 'customer').
+ * * @param {import('express').Response} res - Express response object used to return JSON payloads.
+ * @param {import('express').NextFunction} next - Express next middleware function for global centralized error handling.
+ * * @returns {Promise<void>} Sends a JSON response with status 200 on successful rating submission, or passes errors to next().
+ * * @throws {400} If parameter IDs are structurally broken, the rating scale is invalid, the order is not fully completed, or it has been rated previously.
+ * @throws {403} If the customer attempting to rate does not match the customer identity recorded on the order document.
+ * @throws {404} If the target order cannot be found, or if no valid vendor associations remain linked to the items.
+ */
 export const rateOrder = async (req, res, next) => {
     try { 
         const orderId = req.params.id;
