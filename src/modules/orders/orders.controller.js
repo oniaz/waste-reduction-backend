@@ -306,3 +306,93 @@ export const updateOrderStatus = async (req, res, next) => {
         next(error);
     }
 };
+// POST /orders/:id/rate | Auth required (customer owner) | rate completed order and update seller rating
+export const rateOrder = async (req, res, next) => {
+    try { 
+        const orderId = req.params.id;
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+        const { rating } = req.body;
+
+        
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: "Invalid order ID" });
+        }
+        
+        //Check rating range
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+            return res.status(400).json({ message: "Rating must be an integer between 1 and 5" });
+        }
+
+        
+        const order = await Order.findById(orderId).populate({
+            path: 'products.productId',
+            select: 'vendorId'
+        });
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        //Check if the user is the owner of the product
+        if (currentUserRole !== 'customer' || order.customerId?.toString() !== currentUserId) {
+            return res.status(403).json({ message: "Forbidden: You do not have permission to rate this order" });
+        }
+
+        // State-Lock Guardrail
+        if (order.status !== 'completed') {
+            return res.status(400).json({ 
+                message: `Cannot rate order. Only completed orders can be rated, but this order is currently '${order.status}'.` 
+            });
+        }
+
+        //Duplicate Prevention Guardrail ///will be edited if we edit schema
+        if (order.toObject().isRated === true) {
+            return res.status(400).json({ message: "You have already submitted a rating for this order" });
+        }
+
+        //Deduplicate Vendor IDs using Spread and Set
+        const vendorIdsInOrder = [
+            ...new Set(
+                order.products
+                    .map(item => item.productId?.vendorId?._id?.toString() || item.productId?.vendorId?.toString())
+                    .filter(id => id) // Remove any undefined values safely
+            )
+        ];
+
+        if (vendorIdsInOrder.length === 0) {
+            return res.status(404).json({ message: "No associated vendors found for this order" });
+        }
+
+        //Generate and execute bulk operations for unique vendors
+        const vendorBulkOps = vendorIdsInOrder.map(vendorId => ({
+            updateOne: {
+                filter: { _id: vendorId },
+                update: {
+                    $inc: {
+                        "rating.score": rating,             // Increment cumulative score by the stars given
+                        "rating.totalRatingsNumber": 1      // Increment total count of ratings by 1
+                    }
+                }
+            }
+        }));
+
+        await Vendor.bulkWrite(vendorBulkOps);
+
+        //Mutate the order document dynamically to mark it as rated
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            { $set: { isRated: true } },
+            { new: true, strict: false } // strict: false lets us save fields not pre-defined in orderSchema
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Order rated successfully! Vendor ratings have been updated.",
+            order: updatedOrder
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
