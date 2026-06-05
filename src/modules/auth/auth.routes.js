@@ -1,5 +1,8 @@
 import express from "express";
 import {register, login, logout , forgotPassword, resetPassword } from "./auth.controller.js";
+import authenticate from "../../middleware/authentication.middleware";
+import authorizeRole from "../../middleware/authorization.middleware";
+import authorizeStatus from "../../middleware/authorizationStatus.middleware";
 
 const router = express.Router();
 
@@ -14,14 +17,14 @@ router.post("/login", login);
 
 router.post("/register", register);
 
-router.post("/logout", logout);
+router.post("/logout", authenticate, logout);
 
 router.post("/forgot-password", forgotPassword);
 
 router.post("/reset-password", resetPassword);
 
-router.get("/me", (req, res) => {
-    res.json({message: "Get current user profile endpoint"});
-});
+// router.get("/me", authenticate, (req, res) => {
+//     res.json({message: "Get current user profile endpoint"});
+// });
 
 export default router;
