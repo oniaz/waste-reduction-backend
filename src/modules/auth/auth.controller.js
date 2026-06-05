@@ -3,6 +3,18 @@ import { validateUsername, validateEmail, validatePassword, validateRole } from 
 import jwt from "jsonwebtoken";
 import bcrypt from 'bcrypt';
 
+// req: {
+//     username: string,
+//     email: string,
+//     password: string,
+//     role: "customer" | "vendor" | "admin"
+// }
+// username cannot contain spaces, must be between 5 and 30 characters
+// email must be valid format
+// password must be at least 6 characters
+// role must be one of "customer", "vendor", "admin"
+// if role is vendor, accountStatus is pending (must be approved later by admin), otherwise active
+// only one customer user can exist with the same email, but multiple vendor users can have the same email
 export const register = async (req, res) => {
     try {
         let { username, password, role, email } = req.body;
