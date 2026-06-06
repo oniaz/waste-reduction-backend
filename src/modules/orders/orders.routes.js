@@ -1,5 +1,7 @@
 import express from "express";
 import { createOrder , getMyOrders , getOrderDetails , getSellerOrders, cancelOrder, updateOrderStatus , rateOrder} from "./orders.controller.js";
+import authenticate from "../../middleware/authentication.middleware.js" 
+import authorizeRole from "../../middleware/authorization.middleware.js"
 const router = express.Router();
 
 // POST /orders | Auth required (customer) | create order from cart items
@@ -12,10 +14,10 @@ const router = express.Router();
 
 
 //////TEMPORARY MOCK AUTH MIDDLEWARE JUST FOR TESTING////////////////
-const mockAuth = (req, res, next) => {
-    req.user = { id: "65f1234567890abcdef12345", role: "customer" }; // The mock Customer ID from database
-    next();
-};
+// const mockAuth = (req, res, next) => {
+//     req.user = { id: "65f1234567890abcdef12345", role: "customer" }; // The mock Customer ID from database
+//     next();
+// };
 
 // const mockAuth = (req, res, next) => {
     //     req.user = { 
@@ -25,18 +27,19 @@ const mockAuth = (req, res, next) => {
         //     next();
         // };
         
-router.post("/", mockAuth,createOrder);
-router.get("/my-orders", mockAuth, getMyOrders);
+router.post("/", authenticate, authorizeRole("customer"),createOrder);
 
-router.get("/seller", mockAuth, getSellerOrders); //must be defined before the more general /:id route to avoid route conflicts
+router.get("/my-orders", authenticate,authorizeRole("customer"), getMyOrders);
 
-router.get("/:id", mockAuth, getOrderDetails);
+router.get("/seller", authenticate,authorizeRole("vendor"), getSellerOrders); //must be defined before the more general /:id route to avoid route conflicts
+
+router.get("/:id", authenticate, getOrderDetails);
 
 
-router.patch("/:id/cancel", mockAuth, cancelOrder);
+router.patch("/:id/cancel", authenticate, authorizeRole("customer"), cancelOrder);
 
-router.patch("/:id/status", mockAuth, updateOrderStatus);
+router.patch("/:id/status", authenticate, authorizeRole('vendor', 'admin'), updateOrderStatus);
 
-router.post("/:id/rate",mockAuth, rateOrder);
+router.post("/:id/rate",authenticate,authorizeRole("customer"), rateOrder);
 
 export default router;
