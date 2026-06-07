@@ -12,7 +12,7 @@ export const getAll = async (req, res, next) => {
       data: products,
     });
   } catch (error) {
-    next(error); // ✅
+    next(error);
   }
 };
 
@@ -28,7 +28,7 @@ export const search = async (req, res, next) => {
       data: products,
     });
   } catch (error) {
-    next(error); // ✅
+    next(error);
   }
 };
 
@@ -39,7 +39,7 @@ export const getById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // 🟢 validate ID first
+    // validate ID first
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -102,7 +102,7 @@ export const update = async (req, res, next) => {
       data: product,
     });
   } catch (error) {
-    next(error); // ✅
+    next(error);
   }
 };
 
@@ -125,6 +125,6 @@ export const remove = async (req, res, next) => {
       message: "Deleted successfully",
     });
   } catch (error) {
-    next(error); // ✅
+    next(error);
   }
 };

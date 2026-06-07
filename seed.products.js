@@ -8,12 +8,10 @@ await mongoose.connect(process.env.MONGO_URI);
 
 console.log("🟢 Connected to DB");
 
-// نمسح الداتا القديمة
 await Products.deleteMany();
 
 console.log("🧹 Old data removed");
 
-// نضيف داتا جاهزة
 await Products.insertMany([
   {
     category: "dairy",
