@@ -1,7 +1,12 @@
 import * as productService from "./products.service.js";
 import mongoose from "mongoose";
 /**
- * GET ALL
+ * Get all products
+ * @route GET /products
+ * @param {Object} req - Express request object (query params for filtering/pagination)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} List of products
  */
 export const getAll = async (req, res, next) => {
   try {
@@ -17,7 +22,12 @@ export const getAll = async (req, res, next) => {
 };
 
 /**
- * SEARCH
+ * Search products by keyword
+ * @route GET /products/search
+ * @param {Object} req - Express request object (query: q)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} Filtered products list
  */
 export const search = async (req, res, next) => {
   try {
@@ -33,7 +43,12 @@ export const search = async (req, res, next) => {
 };
 
 /**
- * GET BY ID
+ * Get product by ID
+ * @route GET /products/:id
+ * @param {Object} req - Express request object (params: id)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} Single product object
  */
 export const getById = async (req, res, next) => {
   try {
@@ -66,7 +81,12 @@ export const getById = async (req, res, next) => {
 };
 
 /**
- * CREATE
+ * Create new product
+ * @route POST /products
+ * @param {Object} req - Express request object (body: product data, user from auth)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} Created product
  */
 export const create = async (req, res, next) => {
   try {
@@ -84,11 +104,16 @@ export const create = async (req, res, next) => {
 };
 
 /**
- * UPDATE
+ * Update existing product
+ * @route PUT /products/:id
+ * @param {Object} req - Express request object (params: id, body: update data)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} Updated product
  */
 export const update = async (req, res, next) => {
   try {
-    const product = await productService.updateProduct(req.params.id, req.body);
+    const product = await productService.getProductById(req.params.id);
 
     if (!product) {
       return res.status(404).json({
@@ -97,9 +122,22 @@ export const update = async (req, res, next) => {
       });
     }
 
+    // ownership check
+    if (product.vendorId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this product",
+      });
+    }
+
+    const updatedProduct = await productService.updateProduct(
+      req.params.id,
+      req.body,
+    );
+
     res.json({
       success: true,
-      data: product,
+      data: updatedProduct,
     });
   } catch (error) {
     next(error);
@@ -107,11 +145,16 @@ export const update = async (req, res, next) => {
 };
 
 /**
- * DELETE
+ * Delete product
+ * @route DELETE /products/:id
+ * @param {Object} req - Express request object (params: id)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware
+ * @returns {JSON} Deletion result message
  */
 export const remove = async (req, res, next) => {
   try {
-    const product = await productService.deleteProduct(req.params.id);
+    const product = await productService.getProductById(req.params.id);
 
     if (!product) {
       return res.status(404).json({
@@ -119,6 +162,16 @@ export const remove = async (req, res, next) => {
         message: "Product not found",
       });
     }
+
+    // ownership check
+    if (product.vendorId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to delete this product",
+      });
+    }
+
+    await productService.deleteProduct(req.params.id);
 
     res.json({
       success: true,

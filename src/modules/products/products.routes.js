@@ -10,6 +10,8 @@ import express from "express";
 import * as productController from "./products.controller.js";
 import { validateCreateProduct } from "./products.validation.js";
 import authMiddleware from "../../middleware/authentication.middleware.js";
+import authorizeRole from "../../middleware/authorization.middleware.js";
+
 const router = express.Router();
 
 // Public
@@ -21,11 +23,23 @@ router.get("/:id", productController.getById);
 router.post(
   "/",
   authMiddleware,
+  authorizeRole("vendor"),
   validateCreateProduct,
   productController.create,
 );
 
-router.put("/:id", authMiddleware, productController.update);
+router.put(
+  "/:id",
+  authMiddleware,
+  authorizeRole("vendor"),
+  productController.update,
+);
 
-router.delete("/:id", authMiddleware, productController.remove);
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRole("vendor"),
+  productController.remove,
+);
+
 export default router;

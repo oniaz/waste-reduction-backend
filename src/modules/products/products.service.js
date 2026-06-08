@@ -80,11 +80,69 @@ export const deleteProduct = async (id) => {
 /**
  * SEARCH
  */
-export const searchProducts = async (q) => {
-  return await Products.find({
-    $or: [
-      { productName: { $regex: q, $options: "i" } },
-      { tags: { $in: [new RegExp(q, "i")] } },
-    ],
-  });
+export const searchProducts = async (q, filters = {}) => {
+  const today = new Date();
+
+  if (!q) q = "";
+  const searchKey = q.trim();
+
+  const page = Number(filters.page) || 1;
+  const limit = Number(filters.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const pipeline = [
+    {
+      $match: {
+        validDate: { $gte: today },
+        expiryDate: { $gt: today },
+        quantity: { $gt: 0 },
+      },
+    },
+
+    {
+      $lookup: {
+        from: "vendors",
+        localField: "vendorId",
+        foreignField: "_id",
+        as: "vendor",
+      },
+    },
+
+    { $unwind: "$vendor" },
+
+    {
+      $match: {
+        $or: [
+          { productName: { $regex: searchKey, $options: "i" } },
+          { "vendor.shopName": { $regex: searchKey, $options: "i" } },
+          {
+            tags: {
+              $elemMatch: { $regex: searchKey, $options: "i" },
+            },
+          },
+        ],
+      },
+    },
+    { $sort: { expiryDate: 1 } },
+
+    {
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    },
+  ];
+
+  const result = await Products.aggregate(pipeline);
+
+  const total = result[0]?.metadata[0]?.total || 0;
+  const data = result[0]?.data || [];
+
+  return {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+    data,
+  };
 };
