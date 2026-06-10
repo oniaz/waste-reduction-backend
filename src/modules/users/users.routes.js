@@ -1,4 +1,7 @@
 import express from "express";
+import {getCurrentUser } from "./users.controller.js";
+import authenticate from "../../middleware/authentication.middleware.js" 
+import authorizeRole from "../../middleware/authorization.middleware.js"
 
 const router = express.Router();
 
@@ -8,9 +11,7 @@ const router = express.Router();
 // GET /users/seller-dashboard | Auth required (seller) | get seller analytics summary
 // GET /users | Auth required (admin) | get all users list
 
-router.get("/me", (req, res) => {
-    res.json({message: "Get current user profile endpoint"});
-});
+router.get("/me", authenticate, getCurrentUser);
 
 router.patch("/me", (req, res) => {
     res.json({message: "Update user profile endpoint"});
