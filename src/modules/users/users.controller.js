@@ -59,3 +59,72 @@ export const getCurrentUser = async (req, res, next) => {
         next(error); 
     } 
 };
+
+// PATCH /users/me | Auth required (all roles) | update own profile information
+export const updateUserInfo = async (req, res, next) => {
+    try {
+        const currentUserRole = req.user?.role;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized: User ID not found in session" });
+        }
+        if (currentUserRole !== 'vendor' && currentUserRole !== 'customer') {
+            return res.status(403).json({ message: "Forbidden: Only authorized vendors and customers can access this endpoint" });
+        }
+
+        let allowedUpdates = {};
+        if (currentUserRole === 'vendor') {
+            const { shopName, address, phoneNumber } = req.body;
+            allowedUpdates = { shopName, address, phoneNumber };
+        } 
+        
+        if (currentUserRole === 'customer') {
+            const { name, address, phoneNumber } = req.body;
+            allowedUpdates = { name, address, phoneNumber };
+        }
+
+        
+        Object.keys(allowedUpdates).forEach(
+            key => allowedUpdates[key] === undefined && delete allowedUpdates[key] // No update for undefined edits
+        );
+
+        
+        if (Object.keys(allowedUpdates).length === 0) { // Check if there's actually anything to update
+            return res.status(400).json({ message: "Bad Request: No valid fields provided for update" });
+        }
+
+        let updatedUser;
+        const updateOptions = { 
+            new: true,          // Returns the document after update is applied
+            runValidators: true // Ensures the new data adheres to your Mongoose Schema rules
+        };
+
+        if (currentUserRole === "vendor") {
+            updatedUser = await Vendor.findByIdAndUpdate(userId, allowedUpdates, updateOptions).lean();
+            
+            if (!updatedUser) return res.status(404).json({ message: "Vendor profile not found" });
+
+            return res.status(200).json({
+                success: true,
+                message: "Vendor profile updated successfully",
+                sellerData: updatedUser
+            });
+        }
+
+        if (currentUserRole === "customer") {
+            updatedUser = await Customer.findByIdAndUpdate(userId, allowedUpdates, updateOptions).lean();
+            
+            if (!updatedUser) return res.status(404).json({ message: "Customer profile not found" });
+
+            return res.status(200).json({
+                success: true,
+                message: "Customer profile updated successfully",
+                customerData: updatedUser
+            });
+        }
+        
+    } catch (error) {
+         next(error); 
+    } 
+};
