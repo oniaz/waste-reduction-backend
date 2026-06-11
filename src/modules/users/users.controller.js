@@ -190,3 +190,91 @@ export const changePassword = async (req, res, next) => {
         next(error);
     }
 };
+// GET /users | Auth required (admin) | get all vendors list
+export const getAllVendors = async (req, res, next) => {
+    try {
+        const currentUserRole = req.user?.role;
+        const authId = req.user?.authId
+        
+        if (!authId) {
+            return res.status(401).json({ message: "Unauthorized: User ID not found in session" });
+        }
+        if (currentUserRole !== 'admin') {
+            return res.status(403).json({ message: "Forbidden: Unauthorized access" });
+        }
+
+        
+        const page = parseInt(req.query.page, 10) || 1;   // Default to page 1
+        const limit = parseInt(req.query.limit, 10) || 10; // Default to 10 records per page
+        
+        
+        const skip = (page - 1) * limit;
+
+        const vendors = await Vendor.find({})
+            .sort({ moneyOwed: -1 }) 
+            .skip(skip)   // Skips the previous pages' items
+            .limit(limit) // Grabs only the current page's size
+            .lean();
+
+        const totalVendors = await Vendor.countDocuments({});
+
+        return res.status(200).json({ 
+            success: true, 
+            pagination: {
+                totalVendors,
+                currentPage: page,
+                totalPages: Math.ceil(totalVendors / limit),
+                limit
+            },
+            count: vendors.length, 
+            vendors 
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+};
+// GET /users/customers | Auth required (admin) | get all customers list with pagination
+export const getAllCustomers = async (req, res, next) => {
+    try {
+        const currentUserRole = req.user?.role;
+        const authId = req.user?.authId
+        
+        if (!authId) {
+            return res.status(401).json({ message: "Unauthorized: User ID not found in session" });
+        }
+        if (currentUserRole !== 'admin') {
+            return res.status(403).json({ message: "Forbidden: Unauthorized access" });
+        }
+
+        
+        const page = parseInt(req.query.page, 10) || 1;   // Default to page 1
+        const limit = parseInt(req.query.limit, 10) || 10; // Default to 10 customers per page
+        const skip = (page - 1) * limit;
+
+        
+        const customers = await Customer.find({})
+            .sort({ createdAt: -1 }) // Shows newest registered customers first
+            .skip(skip)
+            .limit(limit)
+            .lean(); // Faster lookup performance
+
+        
+        const totalCustomers = await Customer.countDocuments({});
+
+        return res.status(200).json({ 
+            success: true, 
+            pagination: {
+                totalCustomers,
+                currentPage: page,
+                totalPages: Math.ceil(totalCustomers / limit),
+                limit
+            },
+            count: customers.length, 
+            customers 
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+};
