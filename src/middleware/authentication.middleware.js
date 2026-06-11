@@ -35,6 +35,8 @@ const authenticate = async (req, res, next) => {
             if (!customerDetails) return res.status(404).json({ message: 'Customer profile not found' });
 
             req.user.id = customerDetails._id.toString();
+        }else if (userAuth.role === 'admin') { //uses authId
+            req.user.id = userAuth._id.toString();
         }
 
         next();
