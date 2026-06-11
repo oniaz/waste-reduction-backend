@@ -278,3 +278,69 @@ export const getAllCustomers = async (req, res, next) => {
         next(error);
     }
 };
+// GET /users/seller-dashboard | Auth required (seller) | get seller analytics summary
+export const getSellerAnalytics = async (req, res, next) => {
+    try {
+        const currentUserRole = req.user?.role;
+        const userId = req.user?.id; 
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized: User ID not found in session" });
+        }
+        if (currentUserRole !== 'vendor') {
+            return res.status(403).json({ message: "Forbidden: Unauthorized access" });
+        }
+
+        const vendorOrders = await Order.find({
+            "products.vendorId": userId 
+        });
+
+        if (vendorOrders.length === 0) {
+           return res.status(200).json({ 
+               success: true, 
+               message: "Vendor has no orders yet",
+               analytics: { profit: 0, productsInCurrentOrders: 0, productsInCompletedOrders: 0, numberOfCustomers: 0 }
+           }); 
+        }
+        
+        let profit = 0;
+        let currentOrderItems = 0;
+        let completedOrderItems = 0;
+        const customerSet = new Set(); 
+
+        vendorOrders.forEach(order => {
+            let orderHasVendorProduct = false;
+
+            order.products.forEach(item => {
+                
+                if (item.vendorId?.toString() === userId) {
+                    orderHasVendorProduct = true;
+
+                    if (order.status === 'completed') {
+                        profit += item.priceAtPurchase * item.quantity * 0.9; 
+                        completedOrderItems += item.quantity;
+                    } else if (['pending', 'ready'].includes(order.status)) {
+                        currentOrderItems += item.quantity;
+                    }
+                }
+            });
+
+            if (orderHasVendorProduct && order.customerId) {
+                customerSet.add(order.customerId.toString());
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            analytics: {
+                profit: Math.round(profit * 100) / 100, 
+                productsInCurrentOrders: currentOrderItems,
+                productsInCompletedOrders: completedOrderItems,
+                numberOfCustomers: customerSet.size 
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching vendor analytics:", error);
+        next(error);
+    }
+};
