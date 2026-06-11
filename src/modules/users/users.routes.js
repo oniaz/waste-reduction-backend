@@ -1,5 +1,5 @@
 import express from "express";
-import {getCurrentUser , updateUserInfo, changePassword,getAllVendors,getAllCustomers} from "./users.controller.js";
+import {getCurrentUser , updateUserInfo, changePassword,getAllVendors,getAllCustomers, getSellerAnalytics} from "./users.controller.js";
 import authenticate from "../../middleware/authentication.middleware.js" 
 import authorizeRole from "../../middleware/authorization.middleware.js"
 
@@ -17,10 +17,7 @@ router.patch("/me", authenticate, updateUserInfo);
 
 router.patch("/change-password",authenticate,changePassword)
 
-router.get("/seller-dashboard", (req, res) => {
-    res.json({message: "Seller dashboard endpoint"});
-});
-
+router.get("/seller-dashboard",authenticate,authorizeRole("vendor"),getSellerAnalytics)
 router.get("/get-vendors", authenticate,authorizeRole("admin") , getAllVendors);
 router.get("/get-customers", authenticate,authorizeRole("admin"), getAllCustomers);
 
