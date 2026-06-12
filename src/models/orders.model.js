@@ -12,6 +12,10 @@ const orderSchema = new mongoose.Schema({
             ref: 'Products', // Targets your exported Products model name
             required: true
         },
+        vendorId: {  //added for better seller analytics
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'Vendors',
+            required: true },
         quantity: {
             type: Number,
             required: true,
@@ -22,6 +26,7 @@ const orderSchema = new mongoose.Schema({
             required: true,
             min: 0
         },
+        
         isCommissioned: {
             type: Boolean,
             default: false
