@@ -326,7 +326,7 @@ export const getAdminLogs = async (req, res, next) => {
             return res.status(400).json({ message: "Invalid Admin ID format" });
         }
 
-        const adminProfile = await Admin.findById(targetAdminAuthId);
+        const adminProfile = await Admin.findById(targetAdminAuthId); //check admin exists
         if (!adminProfile) {
             return res.status(404).json({ message: "Admin profile not found" });
         }
