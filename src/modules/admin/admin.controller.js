@@ -6,6 +6,8 @@ import express from "express";
 import mongoose from "mongoose";
 import UsersAuth from "../../models/usersAuth.model.js";
 import bcrypt from 'bcrypt';
+import Logs from "../../models/adminLogs.model.js"
+import Admin from "../../models/admins.models.js"
 // GET /admin/pending-sellers | Auth required (admin) | list sellers awaiting approval
 export const getPendingSellers = async (req, res, next) => {
     try {
@@ -59,7 +61,7 @@ export const getPendingSellers = async (req, res, next) => {
 export const changeSellerStatus = async (req, res, next) => {
     try {
         const currentUserRole = req.user?.role;
-        const authId = req.user?.authId;
+        const authId = req.user?.authId; // This is the UsersAuth ID
         const { sellerId } = req.params; 
         const { status } = req.body;
         const validStatuses = ['pending', 'active', 'suspended'];
@@ -78,23 +80,56 @@ export const changeSellerStatus = async (req, res, next) => {
             return res.status(400).json({ message: "Invalid or missing status value" });
         }
 
+        const adminProfile = await Admin.findOne({ authId });
+        if (!adminProfile) {
+            return res.status(404).json({ message: "Admin profile record not found" });
+        }
+
         const vendorProfile = await Vendor.findById(sellerId);
-        
         if (!vendorProfile) {
             return res.status(404).json({ message: "Vendor profile not found" });
         }
-        
+
+        // get current account status before overwrite 
+        const currentAuth = await UsersAuth.findById(vendorProfile.authId);
+        if (!currentAuth) {
+            return res.status(404).json({ message: "Associated authentication account not found" });
+        }
+        const previousStatus = currentAuth.accountStatus;
+
+        if (previousStatus === status) {
+            return res.status(400).json({ message: `Seller account is already ${status}` });
+        }
+
+        // update
         const updatedAuth = await UsersAuth.findByIdAndUpdate(
             vendorProfile.authId,
             { accountStatus: status },
-            { new: true, runValidators: true } // 'new: true' returns the updated document
+            { new: true, runValidators: true }
         );
 
-        if (!updatedAuth) {
-            return res.status(404).json({ message: "Associated authentication account not found" });
+        // 4. Map the action string to match your exact schema enum values
+        let logAction;
+        if (status === 'active') {
+            logAction = 'approve_vendor';
+        } else if (status === 'suspended') {
+            if (previousStatus === 'pending') {
+                logAction = 'reject_vendor';
+            } else if (previousStatus === 'active') {
+                logAction = 'suspend_user'; 
+            }
+        } else if (status === 'pending') {
+            logAction = 'suspend_user'; 
         }
 
-        
+        // Create the system log 
+        Logs.create({
+            adminId: adminProfile._id, // Now referencing the real '_id' from the Admin collection
+            userId: vendorProfile.authId, // Targets 'UsersAuth' of the vendor being updated
+            action: logAction,
+            description: `Changed seller with Id ${sellerId} status from '${previousStatus}' to '${status}'.`
+        })
+
         return res.status(200).json({
             success: true,
             message: `Seller account status successfully updated to ${status}`,
@@ -106,7 +141,7 @@ export const changeSellerStatus = async (req, res, next) => {
         });
         
     } catch (error) {
-      console.log(error);
+        console.log(error);
         next(error);
     }
 };
