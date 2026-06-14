@@ -1,5 +1,5 @@
 import * as productService from "./products.service.js";
-import { uploadToCloudinary, deleteFromCloudinary } from "../../utils/authValidators.js";
+import { uploadToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryHelper.js";
 import mongoose from "mongoose";
 /**
  * Get all products
